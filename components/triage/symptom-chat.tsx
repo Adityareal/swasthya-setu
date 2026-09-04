@@ -21,10 +21,14 @@ import {
   questionOrdinal,
   transcriptOf,
 } from '@/lib/triage/chat-reducer';
+import { useSpeechRecognition } from '@/lib/voice/use-speech-recognition';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { RiskBadge } from '@/components/system/risk-badge';
 import { BiLabel } from '@/components/system/bi-label';
+import { MicButton, VoiceCaption } from '@/components/voice/mic-button';
+import { InterimTranscript } from '@/components/voice/interim-transcript';
+import { ReadbackButton } from '@/components/voice/readback-button';
 
 /**
  * The Symptom_Chat.
@@ -94,6 +98,29 @@ export function SymptomChat({
   const [draft, setDraft] = useState('');
   const liveRef = useRef<HTMLDivElement | null>(null);
 
+  /**
+   * Voice capture (Req 5.6, 5.7, 5.8) — ADDITIVE BY CONSTRUCTION.
+   *
+   * The mic does not own any text. Settled chunks are appended to `draft`, the
+   * same state the keyboard writes to and the same state `send` reads, so there
+   * is exactly one transcript and it is always the editable one. That is why
+   * voice cannot break intake: remove the microphone, remove the hook, remove
+   * this whole block, and every path through this component is unchanged.
+   *
+   * It is also why Req 5.7 ("edit the captured transcript before submission")
+   * needs no implementation. There is nothing to convert from a voice buffer into
+   * an editable field, because the editable field was the buffer all along.
+   */
+  const appendTranscript = useCallback((chunk: string) => {
+    setDraft((prev) => {
+      const head = prev.replace(/\s+$/u, '');
+      return head === '' ? chunk : `${head} ${chunk}`;
+    });
+  }, []);
+
+  const voice = useSpeechRecognition({ locale, onTranscript: appendTranscript });
+  const { stop: stopVoice, reset: resetVoice } = voice;
+
   /* Keep the newest turn in view without stealing focus from the composer. */
   useEffect(() => {
     liveRef.current?.scrollIntoView({ block: 'end', behavior: 'smooth' });
@@ -103,6 +130,12 @@ export function SymptomChat({
     async (text: string) => {
       const body = text.trim();
       if (body === '' || state.busy) return;
+
+      /* Sending while the mic is live closes it. Any tail the engine has not
+         finalised yet is flushed by the hook's `onend` and lands in the composer
+         as the start of the NEXT answer — those are still words the user said, so
+         they are kept rather than dropped on the floor. */
+      stopVoice();
 
       const at = new Date().toISOString();
       const withUser = appendTurn(state.turns, { role: 'user', text: body, at });
@@ -179,18 +212,43 @@ export function SymptomChat({
         degraded: source === 'fallback',
       }));
     },
-    [locale, patient, state.busy, state.turns],
+    [locale, patient, state.busy, state.turns, stopVoice],
   );
 
   function restart() {
     setState(INITIAL);
     setDraft('');
+    /* A new conversation gets a clean mic: a `not-allowed` from the last one
+       must not leave the button dead for a session the user just restarted. */
+    stopVoice();
+    resetVoice();
   }
 
   const step = state.step;
   const assessment = step?.kind === 'assessment' ? step : null;
   const question = step?.kind === 'question' ? step : null;
   const started = state.turns.length > 0;
+
+  /**
+   * One line under the composer, and only one. In priority order:
+   *
+   *   error   — a real recognition failure, and the words already spoken are in
+   *             the textarea above it (Req 5.8)
+   *   note    — no `SpeechRecognition` on this browser, so the mic is disabled
+   *             and this says why (Req 5.8's first clause)
+   *   listening — plain state, so the fill colour is not the only signal
+   *
+   * Stacking all three would put three plates under a two-row textarea on a
+   * 360px screen and push Send below the fold.
+   */
+  const voiceCaption: { text: string; tone: 'listening' | 'error' | 'note' } | null =
+    voice.errorText !== null
+      ? { text: voice.errorText, tone: 'error' }
+      : !voice.supported
+        ? { text: t('voice.unsupported'), tone: 'note' }
+        : voice.listening
+          ? { text: t('voice.listening'), tone: 'listening' }
+          : null;
 
   return (
     <div className={cn('flex flex-col gap-4', className)}>
@@ -321,6 +379,17 @@ export function SymptomChat({
             </p>
           )}
 
+          {/* Req 11.1 — playback of the summary and the next step, in the
+              patient's own language. It sits INSIDE this plate, below the text it
+              reads, which is what discharges Req 11.3's on-screen-text half: the
+              guidance is already above the button when the button reports that no
+              voice exists for that language. */}
+          <ReadbackButton
+            locale={locale}
+            summary={assessment.summary}
+            nextStep={assessment.recommended_next_step}
+          />
+
           <div className="mt-1 flex flex-wrap gap-2">
             <Button
               type="button"
@@ -351,8 +420,8 @@ export function SymptomChat({
         </section>
       )}
 
-      {/* ——— The composer. It IS the transcript holder, which is why voice can
-              later write into it without touching this component's contract. ——— */}
+      {/* ——— The composer. It IS the transcript holder, which is why the mic can
+              write into it without touching this component's contract. ——— */}
       {!assessment && (
         <form
           className="flex flex-col gap-2"
@@ -376,6 +445,16 @@ export function SymptomChat({
             value={draft}
             disabled={state.busy}
             placeholder={t('chat.composer.placeholder')}
+            /* Editable while the mic is live, which is the point: a
+               mis-transcription is a correction, not a dead end (Req 5.7). */
+            aria-describedby={
+              [
+                voice.interim !== '' ? 'chat-voice-interim' : null,
+                voiceCaption !== null ? 'chat-voice-caption' : null,
+              ]
+                .filter(Boolean)
+                .join(' ') || undefined
+            }
             onChange={(event) => setDraft(event.target.value)}
             onKeyDown={(event) => {
               /* Enter sends, Shift+Enter breaks the line. A two-line answer is
@@ -386,14 +465,57 @@ export function SymptomChat({
               }
             }}
           />
-          <Button
-            type="submit"
-            size="field"
-            disabled={state.busy || draft.trim() === ''}
-          >
-            <Send aria-hidden="true" />
-            <BiLabel k="chat.send" secondaryClassName="text-action-fg/75" />
-          </Button>
+
+          {/* The unsettled tail, muted with a dashed underline — never italic. */}
+          <InterimTranscript
+            id="chat-voice-interim"
+            text={voice.interim}
+            label={t('voice.interim')}
+            locale={locale}
+          />
+
+          {voiceCaption && (
+            <VoiceCaption
+              id="chat-voice-caption"
+              text={voiceCaption.text}
+              tone={voiceCaption.tone}
+              locale={locale}
+            />
+          )}
+
+          {/* Mic beside Send, both at the 56px field floor. The mic is an INPUT
+              METHOD for the field above, so it sits with the send action rather
+              than floating somewhere else on the screen. */}
+          <div className="flex items-stretch gap-2">
+            <MicButton
+              listening={voice.listening}
+              supported={voice.supported}
+              /* Req 5.8 — a denied microphone, an absent one or an unreachable
+                 recognition service will not fix itself on a retry, so voice
+                 stands down for the session and the textarea above (which still
+                 holds every word already spoken) becomes the path. `restart`
+                 clears the latch, so a fresh conversation gets a fresh mic. */
+              disabled={state.busy || voice.fellBackToText}
+              locale={locale}
+              labels={{
+                listen: t('voice.listen'),
+                stop: t('voice.stop'),
+                unsupported: t('voice.unsupported'),
+              }}
+              {...(voiceCaption ? { describedBy: 'chat-voice-caption' } : {})}
+              onStart={voice.start}
+              onStop={voice.stop}
+            />
+            <Button
+              type="submit"
+              size="field"
+              className="flex-1"
+              disabled={state.busy || draft.trim() === ''}
+            >
+              <Send aria-hidden="true" />
+              <BiLabel k="chat.send" secondaryClassName="text-action-fg/75" />
+            </Button>
+          </div>
         </form>
       )}
     </div>

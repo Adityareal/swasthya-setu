@@ -43,12 +43,20 @@
          local keyword classifier and the summary to a local template. -->
     <uses-permission android:name="android.permission.INTERNET" />
 
-    <!-- PENDING: CAMERA, for the QR_Module scanner (Req 18, spec task 11.5).
-         Deliberately not declared yet. The scanner route does not exist, and an
-         undeclared permission is one the Play install dialog does not ask for.
-         Add both lines below when /asha/scan ships:
-             <uses-permission android:name="android.permission.CAMERA" />
-             <uses-feature android:name="android.hardware.camera" android:required="false" />
-         `required="false"` matters — QR scanning is a Stretch_Capability, so a
-         device with no camera must still install. -->
+    <!-- Required by the QR_Module scanner at /asha/scan (Req 18.2). The WebView
+         loads from https://localhost, which is a secure context, so getUserMedia
+         is available there — but the WebView cannot grant itself a permission the
+         app never declared, and without this line the scanner fails on every
+         device with the same "camera unavailable" reading as a phone with no
+         camera at all. -->
+    <uses-permission android:name="android.permission.CAMERA" />
+
+    <!-- `required="false"` is the load-bearing attribute. QR scanning is a
+         Stretch_Capability: Req 18.5 keeps patient selection completable through
+         the Patient_Picker and the manual card-number field alone, so a device
+         with no camera must still install and still complete every flow. Omitting
+         this attribute defaults it to true and would let the Play Store filter
+         the app off exactly those devices. -->
+    <uses-feature android:name="android.hardware.camera" android:required="false" />
+    <uses-feature android:name="android.hardware.camera.autofocus" android:required="false" />
 </manifest>
