@@ -1,0 +1,27 @@
+# This repository is authored on Windows with core.autocrlf enabled and built on
+# an Ubuntu runner, so line endings are not a cosmetic matter here.
+
+# Default: normalise to LF in the repository, let git decide the working copy.
+* text=auto
+
+# The Gradle wrapper script is executed by bash on the CI runner. A CRLF line
+# ending on the shebang line makes the kernel look for an interpreter named
+# "/bin/sh\r", and the build fails with a bare "not found" that says nothing
+# about why. Pin it.
+gradlew text eol=lf
+*.sh text eol=lf
+
+# Windows batch files need CRLF to be reliable.
+*.bat text eol=crlf
+gradlew.bat text eol=crlf
+
+# Never transform these. The wrapper jar in particular is executable content —
+# a single byte changed by newline conversion makes it unusable.
+*.jar binary
+*.png binary
+*.jpg binary
+*.ico binary
+*.woff binary
+*.woff2 binary
+*.keystore binary
+*.jks binary

@@ -1,0 +1,54 @@
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+
+    <application
+        android:allowBackup="true"
+        android:icon="@mipmap/ic_launcher"
+        android:label="@string/app_name"
+        android:roundIcon="@mipmap/ic_launcher_round"
+        android:supportsRtl="true"
+        android:theme="@style/AppTheme">
+
+        <activity
+            android:configChanges="orientation|keyboardHidden|keyboard|screenSize|locale|smallestScreenSize|screenLayout|uiMode|navigation"
+            android:name=".MainActivity"
+            android:label="@string/title_activity_main"
+            android:theme="@style/AppTheme.NoActionBarLaunch"
+            android:launchMode="singleTask"
+            android:exported="true">
+
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+
+        </activity>
+
+        <provider
+            android:name="androidx.core.content.FileProvider"
+            android:authorities="${applicationId}.fileprovider"
+            android:exported="false"
+            android:grantUriPermissions="true">
+            <meta-data
+                android:name="android.support.FILE_PROVIDER_PATHS"
+                android:resource="@xml/file_paths"></meta-data>
+        </provider>
+    </application>
+
+    <!-- Permissions -->
+
+    <!-- Required. The WebView loads the bundle from disk, but every AI call goes
+         to the hosted origin in NEXT_PUBLIC_API_BASE_URL. Without this the app
+         still runs and every flow still completes — triage falls back to the
+         local keyword classifier and the summary to a local template. -->
+    <uses-permission android:name="android.permission.INTERNET" />
+
+    <!-- PENDING: CAMERA, for the QR_Module scanner (Req 18, spec task 11.5).
+         Deliberately not declared yet. The scanner route does not exist, and an
+         undeclared permission is one the Play install dialog does not ask for.
+         Add both lines below when /asha/scan ships:
+             <uses-permission android:name="android.permission.CAMERA" />
+             <uses-feature android:name="android.hardware.camera" android:required="false" />
+         `required="false"` matters — QR scanning is a Stretch_Capability, so a
+         device with no camera must still install. -->
+</manifest>

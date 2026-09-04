@@ -1,0 +1,325 @@
+@import "tailwindcss";
+
+/* ============================================================================
+   Swasthya Setu — Design_System token layer (Req 2.1)
+   Indian public-infrastructure enamel signage + vaccine-vial-monitor state
+   coding. Light ground. Flat fills. Hard edges. ZERO blur anywhere, ever.
+   Nothing here is decoration: a colour patch in this product means something.
+   ========================================================================== */
+
+/* `dark:` variants shipped inside shadcn primitives are pinned to an opt-in
+   `.dark` class that this product never sets. The courtyard needs a light
+   ground — a near-black UI on an LCD in 38 °C glare becomes a mirror. */
+@custom-variant dark (&:where(.dark, .dark *));
+
+@layer base {
+  :root {
+    color-scheme: light;
+
+    /* ——— Ground and surfaces ——— */
+    --ss-ground:        #E7EBE9;   /* app background — cool porcelain, not cream            */
+    --ss-surface:       #FFFFFF;   /* plates                                                */
+    --ss-sunk:          #D7DEDA;   /* inputs, table stripes, disabled fills                 */
+
+    /* ——— Ink ——— */
+    --ss-ink:           #0E1A17;   /* body, borders, hard shadows                           */
+    --ss-ink-muted:     #46564F;   /* captions, secondary locale, interim transcript        */
+
+    /* ——— Chrome (app bar, side nav) ——— */
+    --ss-chrome:        #0B3B33;   /* enamel petrol green                                   */
+    --ss-chrome-fg:     #FFFFFF;
+    --ss-chrome-muted:  #A9C6BE;
+
+    /* ——— Signal: risk levels only, never decoration ——— */
+    --ss-high:          #B01018;   /* fill; white text on it                                */
+    --ss-med-fill:      #E4A020;   /* fill; INK text on it — never white                    */
+    --ss-med-fg:        #7A4A00;   /* the ochre role for glyphs and text on light grounds    */
+    --ss-low:           #1F6B4A;   /* fill; white text on it                                */
+
+    /* ——— Action / wayfinding ——— */
+    --ss-action:        #14477D;   /* direction-board blue: primary buttons, focus, routing  */
+    --ss-action-fg:     #FFFFFF;
+
+    /* ——— Lines ——— */
+    --ss-line:          #0E1A17;   /* 2px, every plate and every interactive boundary        */
+    --ss-line-soft:     #A8B4AF;   /* decorative dividers ONLY — see the rule below          */
+
+    --ss-scrim:         rgb(14 26 23 / 0.72);
+
+    /* ——— Typography ——— */
+    /* --ss-font-ui is completed by next/font in app/layout.tsx, which injects
+       --font-mukta. Named fallbacks also draw Devanagari, so a fallback never
+       splits the two scripts across two optical sizes on one line. */
+    --ss-font-ui: var(--font-mukta), 'Mukta', 'Noto Sans Devanagari', system-ui, sans-serif;
+
+    --ss-text-caption:  0.8125rem;  /* 13px / 600 — labels, secondary locale. Never body.   */
+    --ss-text-body:     1rem;       /* 16px / 400 — dense doctor-panel body, tables         */
+    --ss-text-field:    1.125rem;   /* 18px / 400 — default body on every ASHA-facing screen */
+    --ss-text-title:    1.375rem;   /* 22px / 600 — card and section titles                 */
+    --ss-text-headline: 1.75rem;    /* 28px / 700 — screen titles                           */
+    --ss-text-display:  2.5rem;     /* 40px / 800 — risk verdict, facility name             */
+    --ss-text-token:    4rem;       /* 64px / 800 — the token number, tabular-nums          */
+
+    --ss-leading-latin: 1.5;
+    --ss-leading-deva:  1.7;   /* Devanagari matras clip at Latin line-heights */
+
+    /* ——— Spacing — 4px base, named steps, no arbitrary values in components ——— */
+    --ss-space-1: 4px;   --ss-space-2: 8px;   --ss-space-3: 12px;  --ss-space-4: 16px;
+    --ss-space-5: 20px;  --ss-space-6: 24px;  --ss-space-8: 32px;  --ss-space-10: 40px;
+    --ss-space-12: 48px; --ss-space-16: 64px;
+
+    /* ——— Touch — Req 2.3 is a floor, not a target ——— */
+    --ss-touch-min:   44px;   /* every interactive control, no exceptions               */
+    --ss-touch-field: 56px;   /* primary field actions: mic, submit, advance, scan      */
+
+    /* ——— Radius — near-square. Enamel plates have tooling radii, not pills. ——— */
+    --ss-radius-plate: 4px;
+    --ss-radius-input: 4px;
+    --ss-radius-chip:  999px;   /* status chips and the mock badge only */
+
+    /* ——— Elevation — hard offset, zero blur. Anywhere. Ever. ——— */
+    --ss-elev-flat:    none;
+    --ss-elev-plate:   3px 3px 0 0 var(--ss-ink);
+    --ss-elev-raised:  5px 5px 0 0 var(--ss-ink);
+    --ss-elev-pressed: 1px 1px 0 0 var(--ss-ink);   /* + translate(2px, 2px) */
+
+    /* ——— Motion — Operate mode: state, not choreography ——— */
+    --ss-dur-fast: 120ms;
+    --ss-dur-base: 180ms;
+    --ss-ease: cubic-bezier(0.2, 0, 0, 1);
+
+    /* ——— Layer 3: alias shadcn/ui's own variables to our tokens so every
+           shadcn component inherits the identity before anyone edits its
+           source. This is the difference between a token layer that ships in
+           four hours and one that does not. ——— */
+    --background: var(--ss-surface);   --foreground: var(--ss-ink);
+    --card:       var(--ss-surface);   --card-foreground: var(--ss-ink);
+    --popover:    var(--ss-surface);   --popover-foreground: var(--ss-ink);
+    --primary:    var(--ss-action);    --primary-foreground: var(--ss-action-fg);
+    --secondary:  var(--ss-sunk);      --secondary-foreground: var(--ss-ink);
+    --muted:      var(--ss-sunk);      --muted-foreground: var(--ss-ink-muted);
+    --accent:     var(--ss-sunk);      --accent-foreground: var(--ss-ink);
+    --destructive: var(--ss-high);     --destructive-foreground: #FFFFFF;
+    --border:     var(--ss-line);      --input: var(--ss-line);  --ring: var(--ss-ink);
+    --radius:     var(--ss-radius-plate);
+  }
+}
+
+/* ——— Layer 2: Tailwind theme mapping. Tailwind v4, CSS-first. ——— */
+@theme inline {
+  --color-ground:      var(--ss-ground);
+  --color-surface:     var(--ss-surface);
+  --color-sunk:        var(--ss-sunk);
+  --color-ink:         var(--ss-ink);
+  --color-ink-muted:   var(--ss-ink-muted);
+  --color-chrome:      var(--ss-chrome);
+  --color-chrome-fg:   var(--ss-chrome-fg);
+  --color-chrome-muted: var(--ss-chrome-muted);
+  --color-high:        var(--ss-high);
+  --color-med:         var(--ss-med-fill);
+  --color-med-fg:      var(--ss-med-fg);
+  --color-low:         var(--ss-low);
+  --color-action:      var(--ss-action);
+  --color-action-fg:   var(--ss-action-fg);
+  --color-line:        var(--ss-line);
+  --color-line-soft:   var(--ss-line-soft);
+
+  /* shadcn's semantic names, resolved through the same tokens */
+  --color-background:  var(--background);
+  --color-foreground:  var(--foreground);
+  --color-card:        var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover:     var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary:     var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary:   var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted:       var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent:      var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
+  --color-border:      var(--border);
+  --color-input:       var(--input);
+  --color-ring:        var(--ring);
+
+  --font-sans:         var(--ss-font-ui);
+
+  --text-caption:      var(--ss-text-caption);
+  --text-body:         var(--ss-text-body);
+  --text-field:        var(--ss-text-field);
+  --text-title:        var(--ss-text-title);
+  --text-headline:     var(--ss-text-headline);
+  --text-display:      var(--ss-text-display);
+  --text-token:        var(--ss-text-token);
+
+  /* Every inherited shadcn radius collapses onto the plate radius: enamel
+     plates have tooling radii, not pill corners. */
+  --radius-plate:      var(--ss-radius-plate);
+  --radius-chip:       var(--ss-radius-chip);
+  --radius-sm:         var(--ss-radius-plate);
+  --radius-md:         var(--ss-radius-plate);
+  --radius-lg:         var(--ss-radius-plate);
+  --radius-xl:         var(--ss-radius-plate);
+  --radius-2xl:        var(--ss-radius-plate);
+
+  --shadow-plate:      var(--ss-elev-plate);
+  --shadow-raised:     var(--ss-elev-raised);
+  --shadow-pressed:    var(--ss-elev-pressed);
+
+  --spacing-touch:     var(--ss-touch-min);
+  --spacing-touch-lg:  var(--ss-touch-field);
+}
+
+@layer base {
+  * {
+    border-color: var(--ss-line);
+  }
+
+  html {
+    -webkit-text-size-adjust: 100%;
+  }
+
+  body {
+    background: var(--ss-ground);
+    color: var(--ss-ink);
+    font-family: var(--ss-font-ui);
+    font-size: var(--ss-text-field);
+    line-height: var(--ss-leading-latin);
+    /* Req 22.3 — 360px is the design width, not a breakpoint to check later. */
+    overflow-x: hidden;
+  }
+
+  /* Script-aware leading. Devanagari carries matras above and below the
+     shirorekha and clips at Latin line-heights. */
+  [lang='hi-IN'],
+  .deva {
+    line-height: var(--ss-leading-deva);
+  }
+
+  /* An ink ring is maximum contrast against every light surface and every
+     signal fill, so one rule covers the whole product. */
+  :focus-visible {
+    outline: 3px solid var(--ss-ink);
+    outline-offset: 2px;
+  }
+
+  .on-chrome :focus-visible {
+    outline-color: #ffffff;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+      transition-duration: 0.01ms !important;
+      animation-duration: 0.01ms !important;
+    }
+  }
+}
+
+/* ============================================================================
+   Signature move 1 — The Enamel Plate.
+   Every card, panel, banner, badge and modal is the same object. Because there
+   is exactly one surface treatment in the entire product, every screen is
+   coherent for free.
+   ========================================================================== */
+@layer components {
+  .plate {
+    background: var(--ss-surface);
+    color: var(--ss-ink);
+    border: 2px solid var(--ss-line);
+    border-radius: var(--ss-radius-plate);
+    box-shadow: var(--ss-elev-plate);
+  }
+
+  .plate--raised {
+    box-shadow: var(--ss-elev-raised);
+  }
+
+  .plate--pressed {
+    box-shadow: var(--ss-elev-pressed);
+    transform: translate(2px, 2px);
+  }
+
+  .plate--sunk {
+    background: var(--ss-sunk);
+    box-shadow: var(--ss-elev-flat);
+  }
+
+  /* ==========================================================================
+     Signature move 2 — The Signal Rail.
+     An 8px full-bleed rail on the leading edge, in the semantic colour, driven
+     by one `data-state` attribute. The eye reads a column of colour blocks
+     before it reads a word.
+     ======================================================================== */
+  .plate[data-state] {
+    border-inline-start-width: 8px;
+    border-inline-start-style: solid;
+  }
+
+  .plate[data-state='low'] { border-inline-start-color: var(--ss-low); }
+  .plate[data-state='medium'] { border-inline-start-color: var(--ss-med-fill); }
+  .plate[data-state='high'] { border-inline-start-color: var(--ss-high); }
+  .plate[data-state='action'] { border-inline-start-color: var(--ss-action); }
+  .plate[data-state='mock'] { border-inline-start-color: var(--ss-med-fill); }
+  .plate[data-state='error'] { border-inline-start-color: var(--ss-high); }
+  .plate[data-state='neutral'] { border-inline-start-color: var(--ss-ink); }
+
+  /* Offline: ochre ground with a 45° ink hazard-stripe rail. The barrier-tape
+     reading is instant and needs no words, which matters when the person
+     reading it is not reading. */
+  .plate[data-state='offline'] {
+    background: var(--ss-med-fill);
+    color: var(--ss-ink);
+    border-inline-start-color: transparent;
+    border-inline-start-image: none;
+  }
+
+  .hazard-rail {
+    background-image: repeating-linear-gradient(
+      45deg,
+      var(--ss-ink) 0 4px,
+      transparent 4px 8px
+    );
+  }
+
+  /* Mock surfaces carry two independent visual channels, neither applied by
+     hand at the call site (Req 20.1). */
+  .plate[data-mock='true'] {
+    outline: 2px dashed var(--ss-med-fill);
+    outline-offset: 2px;
+  }
+
+  /* The Token Chit — a punched railway chart chit. One perforated leading edge
+     drawn by a single repeating-radial-gradient. */
+  .chit-perf {
+    background-image: repeating-radial-gradient(
+      circle at 0 0,
+      var(--ss-ground) 0 5px,
+      transparent 5px 12px
+    );
+    background-size: 12px 24px;
+    background-repeat: repeat-y;
+    background-position: left center;
+  }
+
+  .tabular {
+    font-variant-numeric: tabular-nums;
+  }
+
+  /* Loading is a plate-shaped skeleton, never a spinner over content. */
+  .skeleton-plate {
+    background: var(--ss-sunk);
+    border: 2px solid var(--ss-line);
+    border-radius: var(--ss-radius-plate);
+    animation: ss-pulse 1.2s var(--ss-ease) infinite alternate;
+  }
+
+  @keyframes ss-pulse {
+    from { opacity: 0.55; }
+    to { opacity: 1; }
+  }
+}
