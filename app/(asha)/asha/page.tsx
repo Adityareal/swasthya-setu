@@ -23,11 +23,12 @@ import { PatientHistoryDialog } from '@/components/asha/patient-history-dialog';
  * Ordered by who needs seeing first, not alphabetically: a patient with a recent
  * `high` record is lifted to the top by `buildWorklist`, and the row says why.
  *
- * Each row offers the three things she does with a patient, and the first is the
+ * Each row offers the four things she does with a patient, and the first is the
  * point of the screen: **Assist** sets the Assisted_Session subject and lands on
  * the intake form with that patient already named (Req 7.1). Booking is the
  * separate explicit path of Req 12.6 — a token without a new triage — and it
- * opens in place, because she is already looking at the patient she means.
+ * opens in place, because she is already looking at the patient she means. The
+ * card is the one action that navigates away, because printing is its own task.
  */
 
 const TYPE_KEY: Record<Facility['type'], MessageKey> = {
@@ -101,6 +102,13 @@ export default function AshaHomePage() {
   function assist(patient: Patient) {
     setAssistedSubjectId(patient.id);
     router.push('/asha/intake');
+  }
+
+  /* Req 18.1 — the printable card. Same `?id=` address the scanner lands on, so
+     there is one route for "this patient's card" rather than two. Without this
+     entry the only way in was to scan the card you were trying to print. */
+  function openCard(patient: Patient) {
+    router.push(`/asha/patient?id=${encodeURIComponent(patient.id)}`);
   }
 
   return (
@@ -177,6 +185,7 @@ export default function AshaHomePage() {
               onAssist={() => assist(row.patient)}
               onHistory={() => setHistoryFor(row.patient)}
               onBook={() => setBookFor(row.patient)}
+              onCard={() => openCard(row.patient)}
             />
           ))}
         </ul>

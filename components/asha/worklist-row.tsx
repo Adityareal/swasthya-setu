@@ -1,6 +1,6 @@
 'use client';
 
-import { CalendarPlus, ClipboardList, Stethoscope } from 'lucide-react';
+import { CalendarPlus, ClipboardList, QrCode, Stethoscope } from 'lucide-react';
 import { useT } from '@/lib/i18n';
 import type { SignalState } from '@/components/system/plate';
 import { Plate } from '@/components/system/plate';
@@ -18,20 +18,27 @@ import type { WorklistRow as Row } from './worklist';
  * the badge's contract allows that only for a surface that already shows the
  * notice once, and repeating it on every row would bury it.
  *
- * Three actions, and the first one is the point of the screen: Assist opens the
+ * Four actions, and the first one is the point of the screen: Assist opens the
  * Assisted_Session (Req 7.1) rather than making the ASHA re-find the patient
  * inside the intake picker.
+ *
+ * The fourth, `onCard`, opens that patient's printable card. It exists because
+ * the card screen was otherwise reachable only by scanning the very card it
+ * prints — circular, and it made "hand the patient a printed card" impossible to
+ * set up in the first place.
  */
 export function WorklistRow({
   row,
   onAssist,
   onHistory,
   onBook,
+  onCard,
 }: {
   row: Row;
   onAssist: () => void;
   onHistory: () => void;
   onBook: () => void;
+  onCard: () => void;
 }) {
   const { t, locale } = useT();
   const { patient, latest, recentHighAt, recordCount } = row;
@@ -101,9 +108,15 @@ export function WorklistRow({
           </p>
         )}
 
-        {/* One column at 360px, three across once there is room. Every control
-            clears the 44px floor through the button's own `min-h-touch`. */}
-        <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
+        {/* One column at 360px, two once there is room, four only at 1024px.
+            Four across earlier does not survive the Devanagari labels:
+            `appointment.book` is अपॉइंटमेंट बुक करें, and अपॉइंटमेंट is a single
+            unbreakable ~10-cluster word at the 18px field size. The 768px
+            breakpoint is the tightest, not the widest — the left rail takes 224px
+            there, so main is NARROWER at md than at sm, and four columns would
+            leave roughly 46px of text box per button. Every control clears the
+            44px floor through the button's own `min-h-touch`. */}
+        <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-4">
           <Button type="button" className="whitespace-normal" onClick={onAssist}>
             <Stethoscope aria-hidden="true" />
             <BiLabel k="nav.intake" secondaryClassName="text-action-fg/75" />
@@ -125,6 +138,15 @@ export function WorklistRow({
           >
             <CalendarPlus aria-hidden="true" />
             <BiLabel k="appointment.book" />
+          </Button>
+          <Button
+            type="button"
+            variant="outline"
+            className="whitespace-normal"
+            onClick={onCard}
+          >
+            <QrCode aria-hidden="true" />
+            <BiLabel k="qr.title" />
           </Button>
         </div>
       </div>
