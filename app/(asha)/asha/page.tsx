@@ -161,13 +161,11 @@ export default function AshaHomePage() {
       ) : rows.length === 0 ? (
         <Plate state="neutral" className="p-4" as="section">
           <BiLabel k="common.empty" className="text-title font-semibold text-ink" />
-          {/* TODO i18n: empty.asha.worklist */}
           <p
             lang={locale}
             className="mt-1 max-w-[70ch] text-caption font-semibold text-ink-muted"
           >
-            No patients on your list yet. Register the first patient, and her
-            record starts with that visit.
+            {t('empty.asha.worklist')}
           </p>
         </Plate>
       ) : (

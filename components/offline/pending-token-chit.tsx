@@ -83,9 +83,8 @@ export function PendingTokenChit({
               <BiLabel k="offline.pending" className="text-field font-extrabold" />
             </span>
           </div>
-          {/* TODO i18n: offline.token.assignedOnSync */}
-          <p lang="en-IN" className="text-caption font-semibold text-ink">
-            Token pending — assigned on sync.
+          <p lang={locale} className="text-caption font-semibold text-ink">
+            {t('offline.token.assignedOnSync')}
           </p>
         </div>
       </div>

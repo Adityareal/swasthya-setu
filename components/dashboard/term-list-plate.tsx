@@ -28,13 +28,11 @@ export function TermListPlate({
         <BiLabel k="dashboard.hotspots" className="text-title font-semibold text-ink" />
       </h2>
 
-      {/* TODO i18n: dashboard.terms.method */}
       <p
         lang={locale}
         className="mt-1 max-w-[70ch] text-caption font-semibold text-ink-muted"
       >
-        Method: term frequency over recorded symptom text, counted once per
-        visit. Words, not diagnoses.
+        {t('dashboard.terms.method')}
       </p>
 
       {terms.length === 0 ? (

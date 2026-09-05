@@ -118,14 +118,11 @@ export default function StockPage() {
         >
           {t('stock.heuristic')}
         </p>
-        {/* TODO i18n: stock.seedNotice */}
         <p
           lang={locale}
           className="mt-1 max-w-[70ch] text-caption font-semibold text-ink-muted"
         >
-          Quantities come from seeded `medicine_stock` rows, not from a live
-          inventory feed. A level is the quantity compared against a reorder
-          threshold — nothing is predicted here.
+          {t('stock.seedNotice')}
         </p>
       </MockPlate>
 
@@ -158,13 +155,11 @@ export default function StockPage() {
             className="text-title font-semibold text-ink"
           />
           {view.total > 0 && (
-            /* TODO i18n: stock.empty.filtered */
             <p
               lang={locale}
               className="mt-1 max-w-[70ch] text-caption font-semibold text-ink-muted"
             >
-              No medicine matches this search. Clear the search box, or turn off
-              the low-and-out filter to see the whole shelf.
+              {t('stock.empty.filtered')}
             </p>
           )}
         </Plate>

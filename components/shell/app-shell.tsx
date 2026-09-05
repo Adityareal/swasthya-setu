@@ -273,8 +273,7 @@ export function AppShell({
             <button
               type="button"
               aria-expanded={moreOpen}
-              /* TODO i18n: nav.more */
-              aria-label="More"
+              aria-label={t('nav.more')}
               onClick={() => setMoreOpen((v) => !v)}
               className={cn(
                 'flex min-h-touch-lg w-full flex-col items-center justify-center gap-0.5 px-1 py-1.5',
@@ -282,8 +281,9 @@ export function AppShell({
               )}
             >
               <MoreHorizontal aria-hidden="true" className="size-6 shrink-0" />
-              {/* TODO i18n: nav.more */}
-              <span className="text-caption leading-none font-semibold">More</span>
+              <span lang={locale} className="text-caption leading-none font-semibold">
+                {t('nav.more')}
+              </span>
             </button>
           </li>
         </ul>

@@ -39,12 +39,11 @@ export function StockFilterBar({
     <Plate className="p-4" as="section">
       <div className="flex flex-col gap-3">
         <label className="flex flex-col gap-1.5">
-          {/* TODO i18n: stock.search */}
           <span
             lang={locale}
             className="text-caption font-semibold text-ink-muted uppercase"
           >
-            Search medicine
+            {t('stock.search')}
           </span>
           <span className="relative flex items-center">
             <Search
@@ -58,8 +57,7 @@ export function StockFilterBar({
               onChange={(event) =>
                 onChange({ ...filter, query: event.target.value })
               }
-              /* TODO i18n: stock.search.placeholder */
-              placeholder="Paracetamol, ORS, insulin…"
+              placeholder={t('stock.search.placeholder')}
               className="pl-11"
             />
           </span>
@@ -76,9 +74,8 @@ export function StockFilterBar({
               : 'bg-sunk text-ink',
           )}
         >
-          {/* TODO i18n: stock.filter.onlyShortages */}
           <span lang={locale} className="text-field font-semibold">
-            Show only low and out
+            {t('stock.filter.onlyShortages')}
           </span>
           <span
             aria-hidden="true"
@@ -94,8 +91,7 @@ export function StockFilterBar({
           role="status"
           className="tabular text-caption font-semibold text-ink-muted"
         >
-          {/* TODO i18n: stock.shownOfTotal */}
-          {`${shown} of ${total} medicines`}
+          {t('stock.shownOfTotal', { shown, total })}
         </p>
 
         <div className="flex flex-wrap items-center gap-2">

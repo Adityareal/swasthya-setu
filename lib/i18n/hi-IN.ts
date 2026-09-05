@@ -36,6 +36,7 @@ const hiIN: Record<keyof typeof enIN, string> = {
   'nav.register': 'दर्ज करें',
   'nav.referrals': 'रेफ़रल',
   'nav.board': 'रेफ़रल बोर्ड',
+  'nav.more': 'अधिक',
 
   /* ——— Intake ——— */
   'intake.title': 'नई शिकायत',
@@ -171,6 +172,8 @@ const hiIN: Record<keyof typeof enIN, string> = {
   'empty.patient.appointment': 'अभी कोई अपॉइंटमेंट नहीं। शिकायत बताएँ और पाएँ।',
   'empty.patient.referral': 'कोई रेफ़रल नहीं। ज़रूरत पड़ने पर डॉक्टर उठाते हैं।',
   'empty.asha.patients': 'मरीज़ का कार्ड स्कैन करें, या सूची से चुनें।',
+  'empty.asha.worklist':
+    'आपकी सूची में अभी कोई मरीज़ नहीं। पहला मरीज़ दर्ज करें, और उसका रिकॉर्ड उसी विज़िट से शुरू हो जाएगा।',
   'empty.doctor.patients': 'कोई मरीज़ प्रतीक्षा में नहीं।',
   'empty.referral.board': 'इस कॉलम में कोई रेफ़रल नहीं।',
 
@@ -247,6 +250,7 @@ const hiIN: Record<keyof typeof enIN, string> = {
   'referral.reason.placeholder': 'यह रेफ़रल क्यों ज़रूरी है?',
   'referral.error.toRequired': 'केंद्र या विशेषज्ञ का नाम लिखें।',
   'referral.rejected': 'यह बदलाव मान्य नहीं',
+  'referral.updatedAt': 'अंतिम बदलाव',
 
   /* ——— Prescription additions ——— */
   'prescription.medicines.placeholder': 'हर पंक्ति में एक दवा',
@@ -313,6 +317,17 @@ const hiIN: Record<keyof typeof enIN, string> = {
   'stock.reorder.threshold': '{n} से कम पर फिर मँगाएँ',
   'stock.heuristic': 'यह बीज डेटा पर बनी पहली-पीढ़ी की गणना है, कोई प्रशिक्षित मॉडल नहीं।',
   'stock.empty': 'इस केंद्र का कोई स्टॉक दर्ज नहीं।',
+  'stock.seedNotice':
+    'मात्राएँ बीज डेटा की `medicine_stock` पंक्तियों से आती हैं, किसी लाइव इन्वेंटरी से नहीं। स्थिति का मतलब है मात्रा की तुलना फिर-मँगाने की सीमा से — यहाँ कुछ भी अनुमान से नहीं निकाला गया।',
+  'stock.empty.filtered':
+    'इस खोज से कोई दवा नहीं मिली। खोज का खाना ख़ाली करें, या पूरी सूची देखने के लिए "कम और ख़त्म" वाला फ़िल्टर बंद करें।',
+  'stock.search': 'दवा खोजें',
+  'stock.search.placeholder': 'पैरासिटामोल, ओ.आर.एस., इंसुलिन…',
+  'stock.filter.onlyShortages': 'केवल कम और ख़त्म दिखाएँ',
+  'stock.shownOfTotal': '{total} दवाओं में से {shown}',
+  'stock.facility': 'केंद्र',
+  'stock.facility.home': 'आपकी तैनाती',
+  'stock.facility.all': 'सभी केंद्र',
 
   /* ——— Aggregate dashboard ——— */
   'dashboard.title': 'ज़िला डैशबोर्ड',
@@ -325,6 +340,19 @@ const hiIN: Record<keyof typeof enIN, string> = {
   'dashboard.heuristic':
     'यह गिनती बीज डेटा पर बनी पहली-पीढ़ी की गणना से आई है। कोई प्रशिक्षित मॉडल नहीं, और रोग की पहचान नहीं।',
   'dashboard.empty': 'अभी जोड़ने लायक कुछ नहीं।',
+  'dashboard.referrals.closedVsOpen': 'बंद {closed} · खुले {open}',
+  'dashboard.referrals.throughput': 'उठाए गए {total} में से {percent}% बंद हुए।',
+  'dashboard.terms.method':
+    'तरीक़ा: दर्ज लक्षण-पाठ में शब्दों की गिनती, हर विज़िट में एक बार। ये शब्द हैं, रोग की पहचान नहीं।',
+  'dashboard.hotspot.title': 'गाँव के अनुसार लक्षणों का भार',
+  'dashboard.hotspot.method':
+    'तरीक़ा: पिछले {days} दिनों में हर गाँव के लिए दर्ज स्वास्थ्य रिकॉर्ड गिनें, फिर उस गिनती को बाँटें — {elevated} से कम पर निगरानी, {elevated} से {elevatedMax} तक बढ़ा हुआ, {concentrated} या उससे ज़्यादा पर केंद्रित।',
+  'dashboard.hotspot.unattributed':
+    'इस अवधि के {counted} रिकॉर्ड में से {unattributed} में गाँव दर्ज नहीं है, इसलिए वे किसी गाँव में नहीं गिने गए।',
+  'dashboard.hotspot.band.watch': 'निगरानी',
+  'dashboard.hotspot.band.elevated': 'बढ़ा हुआ',
+  'dashboard.hotspot.band.concentrated': 'केंद्रित',
+  'dashboard.hotspot.row': '{village}: {count} रिकॉर्ड, {band}',
 
   /* ——— Offline_Queue ——— */
   'offline.online': 'ऑनलाइन',
@@ -344,6 +372,7 @@ const hiIN: Record<keyof typeof enIN, string> = {
   'offline.queue.kind.prescription': 'दवा पर्ची',
   'offline.queue.kind.clinical-decision': 'डॉक्टर का निर्णय',
   'offline.queue.attempts': 'कोशिशें',
+  'offline.token.assignedOnSync': 'टोकन बाक़ी — सिंक होने पर मिलेगा।',
 
   /* ——— Voice_Module ——— */
   'voice.listen': 'सुनें',
@@ -354,6 +383,8 @@ const hiIN: Record<keyof typeof enIN, string> = {
   'voice.unsupported': 'इस ब्राउज़र में आवाज़ उपलब्ध नहीं है। टाइप करें।',
   'voice.noVoice': 'इस भाषा की आवाज़ इस डिवाइस पर नहीं है। सलाह लिखी हुई दिखाई गई है।',
   'voice.interim': 'अब तक सुना',
+  'voice.error.noSpeech': 'कुछ सुनाई नहीं दिया। "सुनें" दबाकर फिर बोलें, या टाइप करें।',
+  'voice.error.notAllowed': 'माइक की अनुमति नहीं मिली। लक्षण टाइप करें।',
 
   /* ——— QR_Module ——— */
   'qr.title': 'मरीज़ कार्ड',

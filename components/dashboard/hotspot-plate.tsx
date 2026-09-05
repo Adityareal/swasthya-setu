@@ -2,7 +2,7 @@
 
 import { MapPin } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { useT } from '@/lib/i18n';
+import { useT, type MessageKey } from '@/lib/i18n';
 import { Plate } from '@/components/system/plate';
 import { BiLabel } from '@/components/system/bi-label';
 import {
@@ -40,14 +40,14 @@ const BAND_FILL: Record<HotspotBand, string> = {
   concentrated: 'bg-med text-ink',
 };
 
-/* TODO i18n: dashboard.hotspot.band.watch / .elevated / .concentrated */
-const BAND_LABEL: Record<HotspotBand, string> = {
-  watch: 'Watch',
-  elevated: 'Elevated',
-  concentrated: 'Concentrated',
+const BAND_KEY: Record<HotspotBand, MessageKey> = {
+  watch: 'dashboard.hotspot.band.watch',
+  elevated: 'dashboard.hotspot.band.elevated',
+  concentrated: 'dashboard.hotspot.band.concentrated',
 };
 
 function BandChip({ band }: { band: HotspotBand }) {
+  const { t } = useT();
   const filled = BAND_PIPS[band];
 
   return (
@@ -72,7 +72,7 @@ function BandChip({ band }: { band: HotspotBand }) {
         ))}
       </span>
       <span className="text-caption font-extrabold uppercase">
-        {BAND_LABEL[band]}
+        {t(BAND_KEY[band])}
       </span>
     </span>
   );
@@ -85,22 +85,25 @@ export function HotspotPlate({ view }: { view: HotspotView }) {
     <Plate className="p-3" as="section">
       <h2 className="flex items-center gap-2">
         <MapPin aria-hidden="true" className="size-5 shrink-0 text-action" />
-        {/* TODO i18n: dashboard.hotspot.title */}
         <span
           lang={locale}
           className="text-title leading-tight font-semibold text-ink"
         >
-          Symptom load by village
+          {t('dashboard.hotspot.title')}
         </span>
       </h2>
 
       {/* The heuristic, stated in words. Req 20.5 asks for exactly this. */}
-      {/* TODO i18n: dashboard.hotspot.method */}
       <p
         lang={locale}
         className="mt-1 max-w-[70ch] text-caption font-semibold text-ink-muted"
       >
-        {`Method: count the health records recorded for each village over the last ${HOTSPOT_WINDOW_DAYS} days, then band that count — under ${HOTSPOT_BAND_FLOOR.elevated} is Watch, ${HOTSPOT_BAND_FLOOR.elevated} to ${HOTSPOT_BAND_FLOOR.concentrated - 1} is Elevated, ${HOTSPOT_BAND_FLOOR.concentrated} or more is Concentrated.`}
+        {t('dashboard.hotspot.method', {
+          days: HOTSPOT_WINDOW_DAYS,
+          elevated: HOTSPOT_BAND_FLOOR.elevated,
+          elevatedMax: HOTSPOT_BAND_FLOOR.concentrated - 1,
+          concentrated: HOTSPOT_BAND_FLOOR.concentrated,
+        })}
       </p>
       <p
         lang={locale}
@@ -134,7 +137,11 @@ export function HotspotPlate({ view }: { view: HotspotView }) {
               </div>
               <div
                 role="img"
-                aria-label={`${row.village}: ${row.count} records, ${BAND_LABEL[row.band]}`}
+                aria-label={t('dashboard.hotspot.row', {
+                  village: row.village,
+                  count: row.count,
+                  band: t(BAND_KEY[row.band]),
+                })}
                 className="h-5 w-full overflow-hidden rounded-plate border-2 border-line bg-sunk"
               >
                 <div className="h-full bg-ink" style={{ width: `${row.width}%` }} />
@@ -145,12 +152,14 @@ export function HotspotPlate({ view }: { view: HotspotView }) {
       )}
 
       {view.unattributed > 0 && (
-        /* TODO i18n: dashboard.hotspot.unattributed */
         <p
           lang={locale}
           className="tabular mt-3 text-caption font-semibold text-ink-muted"
         >
-          {`${view.unattributed} of ${view.counted} records in the window have no village recorded, so no village claims them.`}
+          {t('dashboard.hotspot.unattributed', {
+            unattributed: view.unattributed,
+            counted: view.counted,
+          })}
         </p>
       )}
     </Plate>

@@ -24,25 +24,6 @@ import type { SpeechRecognitionErrorCode } from './speech-api';
  * product's own.
  */
 
-/**
- * Two strings the catalogue does not carry. Both locales are written out rather
- * than defaulting to English, because an English sentence in a Hindi UI is a
- * worse failure than the failure it is reporting.
- *
- * TODO i18n: voice.error.noSpeech
- * TODO i18n: voice.error.notAllowed
- */
-const LOCAL_STRINGS = {
-  'voice.error.noSpeech': {
-    'en-IN': 'Nothing was heard. Press Listen and speak again, or type instead.',
-    'hi-IN': 'कुछ सुनाई नहीं दिया। "सुनें" दबाकर फिर बोलें, या टाइप करें।',
-  },
-  'voice.error.notAllowed': {
-    'en-IN': 'Microphone permission was refused. Type the symptoms instead.',
-    'hi-IN': 'माइक की अनुमति नहीं मिली। लक्षण टाइप करें।',
-  },
-} as const satisfies Record<string, Record<SupportedLanguage, string>>;
-
 /** Codes that leave voice usable. Everything else hands over to text (Req 5.8). */
 const RECOVERABLE: ReadonlySet<string> = new Set(['no-speech', 'aborted']);
 
@@ -83,10 +64,10 @@ export function recognitionErrorText(
     case 'aborted':
       return null;
     case 'no-speech':
-      return LOCAL_STRINGS['voice.error.noSpeech'][locale];
+      return catalogue['voice.error.noSpeech'];
     case 'not-allowed':
     case 'service-not-allowed':
-      return LOCAL_STRINGS['voice.error.notAllowed'][locale];
+      return catalogue['voice.error.notAllowed'];
     case 'audio-capture':
     case 'network':
     default:

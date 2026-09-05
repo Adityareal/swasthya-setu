@@ -43,12 +43,11 @@ export function FacilityPicker({
     <Plate className="p-4" as="section">
       <fieldset className="flex flex-col gap-2">
         <legend className="mb-1">
-          {/* TODO i18n: stock.facility */}
           <span
             lang={locale}
             className="text-caption font-semibold text-ink-muted uppercase"
           >
-            Facility
+            {t('stock.facility')}
           </span>
         </legend>
 
@@ -76,8 +75,7 @@ export function FacilityPicker({
                 </span>
                 <span className="text-caption font-semibold opacity-80">
                   {t(TYPE_KEY[facility.type])}
-                  {/* TODO i18n: stock.facility.home */}
-                  {isHome && ' · Your posting'}
+                  {isHome && ` · ${t('stock.facility.home')}`}
                 </span>
               </span>
             </label>
@@ -95,9 +93,8 @@ export function FacilityPicker({
           />
           <span className="plate flex min-h-touch-lg items-center gap-2 p-3 peer-checked:bg-action peer-checked:text-action-fg peer-focus-visible:outline-2 peer-focus-visible:outline-offset-2 peer-focus-visible:outline-ink">
             <Layers aria-hidden="true" className="size-5 shrink-0" />
-            {/* TODO i18n: stock.facility.all */}
             <span lang={locale} className="text-field font-semibold">
-              All facilities
+              {t('stock.facility.all')}
             </span>
           </span>
         </label>

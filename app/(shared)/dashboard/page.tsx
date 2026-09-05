@@ -163,8 +163,10 @@ export default function DashboardPage() {
               <StatPlate
                 labelKey="dashboard.referrals"
                 value={`${throughput.closed}/${throughput.total}`}
-                /* TODO i18n: dashboard.referrals.closedVsOpen */
-                caption={`${t('referral.closed')} ${throughput.closed} · open ${throughput.open}`}
+                caption={t('dashboard.referrals.closedVsOpen', {
+                  closed: throughput.closed,
+                  open: throughput.open,
+                })}
               />
             </div>
 
@@ -180,8 +182,10 @@ export default function DashboardPage() {
               titleKey="dashboard.referrals"
               icon={Share2}
               bars={referrals}
-              /* TODO i18n: dashboard.referrals.throughput */
-              caption={`${throughput.closedPercent}% closed of ${throughput.total} raised.`}
+              caption={t('dashboard.referrals.throughput', {
+                percent: throughput.closedPercent,
+                total: throughput.total,
+              })}
             />
 
             <TermListPlate terms={stats.topSymptomTerms} />

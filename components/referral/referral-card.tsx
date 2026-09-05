@@ -107,8 +107,7 @@ export function ReferralCard({
           {updated !== raised && (
             <>
               {' · '}
-              {/* TODO i18n: referral.updatedAt */}
-              Updated {updated}
+              {t('referral.updatedAt')} {updated}
             </>
           )}
         </p>

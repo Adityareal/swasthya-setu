@@ -165,3 +165,7 @@ android/app/src/main/res/xml/config.xml
 *.jks
 *.keystore
 keystore.properties
+# Where CI build artifacts land when downloaded locally (dist/app-debug.apk is
+# ~5 MB). The generic `dist` entry above already covers this, but that one sits
+# under a Nuxt heading and is incidental; this makes the intent explicit.
+dist/

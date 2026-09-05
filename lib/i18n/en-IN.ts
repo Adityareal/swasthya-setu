@@ -38,6 +38,7 @@ const enIN = {
   'nav.register': 'Register',
   'nav.referrals': 'Referrals',
   'nav.board': 'Referral board',
+  'nav.more': 'More',
 
   /* ——— Intake ——— */
   'intake.title': 'New complaint',
@@ -173,6 +174,10 @@ const enIN = {
   'empty.patient.appointment': 'No appointment yet. Describe a complaint to get one.',
   'empty.patient.referral': 'No referrals. A doctor raises one when a specialist is needed.',
   'empty.asha.patients': 'Scan a patient’s card, or pick from the list.',
+  /* A genuinely empty worklist, which `empty.asha.patients` is wrong for: there
+     is no list to pick from and no card worth scanning yet. */
+  'empty.asha.worklist':
+    'No patients on your list yet. Register the first patient, and her record starts with that visit.',
   'empty.doctor.patients': 'No patients waiting.',
   'empty.referral.board': 'No referrals in this column.',
 
@@ -255,6 +260,8 @@ const enIN = {
   'referral.reason.placeholder': 'Why is this referral needed?',
   'referral.error.toRequired': 'Enter a facility or specialist.',
   'referral.rejected': 'Transition rejected',
+  /** Label before a referral's `updatedAt` date, shown only when it moved. */
+  'referral.updatedAt': 'Updated',
 
   /* ——— Prescription additions ——— */
   'prescription.medicines.placeholder': 'One medicine per line',
@@ -321,6 +328,17 @@ const enIN = {
   'stock.heuristic':
     'A v1 heuristic over seeded rows, not a trained model.',
   'stock.empty': 'No stock recorded for this facility.',
+  'stock.seedNotice':
+    'Quantities come from seeded `medicine_stock` rows, not from a live inventory feed. A level is the quantity compared against a reorder threshold — nothing is predicted here.',
+  'stock.empty.filtered':
+    'No medicine matches this search. Clear the search box, or turn off the low-and-out filter to see the whole shelf.',
+  'stock.search': 'Search medicine',
+  'stock.search.placeholder': 'Paracetamol, ORS, insulin…',
+  'stock.filter.onlyShortages': 'Show only low and out',
+  'stock.shownOfTotal': '{shown} of {total} medicines',
+  'stock.facility': 'Facility',
+  'stock.facility.home': 'Your posting',
+  'stock.facility.all': 'All facilities',
 
   /* ——— Aggregate dashboard (Req 20.4) ——— */
   'dashboard.title': 'District dashboard',
@@ -333,6 +351,20 @@ const enIN = {
   'dashboard.heuristic':
     'Counted from seeded rows using a documented v1 heuristic. Not a trained model and not disease detection.',
   'dashboard.empty': 'Nothing to aggregate yet.',
+  'dashboard.referrals.closedVsOpen': 'Closed {closed} · open {open}',
+  'dashboard.referrals.throughput': '{percent}% closed of {total} raised.',
+  'dashboard.terms.method':
+    'Method: term frequency over recorded symptom text, counted once per visit. Words, not diagnoses.',
+  'dashboard.hotspot.title': 'Symptom load by village',
+  'dashboard.hotspot.method':
+    'Method: count the health records recorded for each village over the last {days} days, then band that count — under {elevated} is Watch, {elevated} to {elevatedMax} is Elevated, {concentrated} or more is Concentrated.',
+  'dashboard.hotspot.unattributed':
+    '{unattributed} of {counted} records in the window have no village recorded, so no village claims them.',
+  'dashboard.hotspot.band.watch': 'Watch',
+  'dashboard.hotspot.band.elevated': 'Elevated',
+  'dashboard.hotspot.band.concentrated': 'Concentrated',
+  /** The bar's accessible name: village, count, band, in one sentence. */
+  'dashboard.hotspot.row': '{village}: {count} records, {band}',
 
   /* ——— Offline_Queue (Req 19) ——— */
   'offline.online': 'Online',
@@ -352,6 +384,9 @@ const enIN = {
   'offline.queue.kind.prescription': 'Prescription',
   'offline.queue.kind.clinical-decision': 'Doctor’s decision',
   'offline.queue.attempts': 'Attempts',
+  /* Why the Token_Number slot is empty rather than showing a number the system
+     cannot honour. See `components/offline/pending-token-chit.tsx`. */
+  'offline.token.assignedOnSync': 'Token pending — assigned on sync.',
 
   /* ——— Voice_Module (Req 5.6, 11) ——— */
   'voice.listen': 'Listen',
@@ -362,6 +397,10 @@ const enIN = {
   'voice.unsupported': 'Voice is not available on this browser. Type instead.',
   'voice.noVoice': 'No voice is installed for this language. The guidance is shown as text.',
   'voice.interim': 'Heard so far',
+  'voice.error.noSpeech':
+    'Nothing was heard. Press Listen and speak again, or type instead.',
+  'voice.error.notAllowed':
+    'Microphone permission was refused. Type the symptoms instead.',
 
   /* ——— QR_Module (Req 18) ——— */
   'qr.title': 'Patient card',
