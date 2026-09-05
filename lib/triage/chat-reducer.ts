@@ -1,4 +1,4 @@
-import type { ChatTurn, SupportedLanguage } from '@/lib/types';
+import type { ChatStep, ChatTurn, SupportedLanguage } from '@/lib/types';
 import { fallbackTriage } from './fallback';
 
 /**
@@ -21,10 +21,14 @@ import { fallbackTriage } from './fallback';
  *      demo's chest-pain case therefore converges in one turn, which is both
  *      faster and clinically correct.
  *
- *   3. NEVER DEAD-END. Any model error, timeout or unparseable body resolves to
- *      `fallbackTriage()` over the concatenated user turns. That branch lives in
- *      the route and the component, but it consumes `transcriptOf()` from here,
- *      so there is exactly one definition of "what the patient said".
+ *   3. NEVER DEAD-END. The conversation always has a way forward. OFFLINE that
+ *      is `localAssessment()` below — `fallbackTriage()` over the concatenated
+ *      user turns, which is the honest best effort when no model is reachable.
+ *      ONLINE it is a visible, retryable error, NOT a keyword verdict: a
+ *      keyword result standing in for the AI while the network is fine is
+ *      dishonest output, and the retry is what keeps the conversation from
+ *      dead-ending. Both branches consume `transcriptOf()` from here, so there
+ *      is exactly one definition of "what the patient said".
  *
  * PURE. No `Date.now()`, no `fetch`, no store access. Timestamps arrive on the
  * turns the caller constructs, which is what lets every rule above be asserted
@@ -120,6 +124,29 @@ export function transcriptOf(turns: ChatTurn[]): string {
     .map((turn) => turn.text.trim())
     .filter((text) => text !== '')
     .join('\n');
+}
+
+/**
+ * Rule 3's offline half, in one place: the keyword classifier over the user
+ * turns, shaped as a terminal `ChatStep`.
+ *
+ * This is the ONLY producer of a keyword assessment in the chat path, and its
+ * only caller is the component's offline branch. The route deliberately does
+ * not call it — the server cannot tell an offline client from a broken Gemini
+ * call, and only one of those two justifies a keyword verdict.
+ */
+export function localAssessment(
+  turns: ChatTurn[],
+  locale: SupportedLanguage,
+): ChatStep {
+  const result = fallbackTriage(transcriptOf(turns), locale);
+  return {
+    kind: 'assessment',
+    risk_level: result.risk_level,
+    summary: result.summary,
+    recommended_next_step: result.recommended_next_step,
+    ...(result.matched.length > 0 ? { red_flags: result.matched } : {}),
+  };
 }
 
 /**

@@ -1,4 +1,10 @@
-import type { ChatStep, RiskLevel } from '@/lib/types';
+import type {
+  ChatFailureReason,
+  ChatStep,
+  ChatStepResponse,
+  RiskLevel,
+  TriageSource,
+} from '@/lib/types';
 
 /**
  * Parse, validate and narrow one model turn into a `ChatStep`.
@@ -145,6 +151,62 @@ export function parseChatStep(
       recommended_next_step: nextStep,
       ...(redFlags.length > 0 ? { red_flags: redFlags } : {}),
     },
+  };
+}
+
+const FAILURE_REASONS: readonly ChatFailureReason[] = [
+  'timeout',
+  'error',
+  'unparseable',
+  'no-key',
+];
+
+/**
+ * Narrow an untrusted `/api/triage/chat` body into `ChatStepResponse`.
+ *
+ * The point of this function is that a failure can NEVER be read as an
+ * assessment. Everything that is not a recognisable success — a missing step, a
+ * step that will not parse, a body that is not an object — becomes
+ * `{ ok: false }`, and the client's error plate handles it. Nothing here
+ * fabricates a `risk_level`.
+ *
+ * `ok` is checked for `=== false` rather than for truthiness, so a body from an
+ * older deployment that predates the discriminant is still read as the success
+ * it was: the step's own shape is what has to validate, not the flag.
+ */
+export function readChatResponse(payload: unknown): ChatStepResponse {
+  if (typeof payload !== 'object' || payload === null || Array.isArray(payload)) {
+    return { ok: false, reason: 'error' };
+  }
+
+  const body = payload as Record<string, unknown>;
+
+  if (body.ok === false) {
+    const reason = body.reason;
+    return {
+      ok: false,
+      reason:
+        typeof reason === 'string' && FAILURE_REASONS.includes(reason as ChatFailureReason)
+          ? (reason as ChatFailureReason)
+          : 'error',
+    };
+  }
+
+  /* A success is only a success if the step itself validates. Re-running the
+     same parser the route ran means a body that was mangled in transit lands in
+     the error state instead of rendering half an assessment. */
+  const parsed = parseChatStep(JSON.stringify(body.step ?? ''));
+  if (!parsed.ok) return { ok: false, reason: 'unparseable' };
+
+  return {
+    ok: true,
+    step: parsed.value,
+    source: body.source === 'fallback' ? 'fallback' : ('gemini' as TriageSource),
+    ...(body.endReason === 'red-flag' ||
+    body.endReason === 'turn-cap' ||
+    body.endReason === 'model'
+      ? { endReason: body.endReason }
+      : {}),
   };
 }
 

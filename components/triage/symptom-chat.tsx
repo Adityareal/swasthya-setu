@@ -1,8 +1,9 @@
 'use client';
 
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { RotateCcw, Send } from 'lucide-react';
+import { RefreshCw, RotateCcw, Send } from 'lucide-react';
 import type {
+  ChatFailureReason,
   ChatStep,
   ChatStepResponse,
   ChatTurn,
@@ -11,12 +12,14 @@ import type {
   TriageSource,
 } from '@/lib/types';
 import { cn } from '@/lib/utils';
-import { useT } from '@/lib/i18n';
+import { useT, type MessageKey } from '@/lib/i18n';
 import { apiUrl } from '@/lib/api-base';
-import { fallbackTriage } from '@/lib/triage/fallback';
+import { isEffectivelyOnline } from '@/lib/offline/simulate';
+import { readChatResponse } from '@/lib/triage/chat-schema';
 import {
   MAX_QUESTIONS,
   appendTurn,
+  localAssessment,
   nextAction,
   questionOrdinal,
   transcriptOf,
@@ -45,6 +48,23 @@ import { ReadbackButton } from '@/components/voice/readback-button';
  * server-side, and this component applies it again before it renders. A UI that
  * trusts a response to be bounded is a UI that can be unbounded by a bad
  * response.
+ *
+ * THE ONLINE / OFFLINE DECISION LIVES HERE, and it can only live here.
+ *
+ *   OFFLINE — `fallbackTriage` over the transcript, no network attempt at all,
+ *             rendered with the visible keyword-fallback label. That is the
+ *             honest best effort: no model is reachable, and a deterministic
+ *             reading of the patient's own words is the most this device can
+ *             truthfully offer.
+ *   ONLINE  — pure Gemini. A failed call surfaces as a visible, retryable error
+ *             and NEVER as a keyword assessment. A keyword verdict standing in
+ *             for the AI while the network is fine is dishonest output: it wears
+ *             the assessment plate, it reads as the model's answer, and it hides
+ *             a real failure from the only people who could act on it.
+ *
+ * The route cannot make this call — it runs on a server and has no idea whether
+ * the *client* has a network — which is why it reports `{ ok: false, reason }`
+ * and leaves the meaning of a failure to this component.
  */
 
 export interface ChatOutcome {
@@ -65,7 +85,13 @@ interface ChatState {
   step: ChatStep | null;
   source: TriageSource | null;
   busy: boolean;
-  degraded: boolean;
+  /**
+   * Set ONLY on the online path, and only when the AI call itself failed. It is
+   * never set offline, because offline is not a failure — it is a different and
+   * legitimate way to answer. `turns` is left intact alongside it, which is what
+   * makes Retry re-send the same conversation instead of losing it.
+   */
+  error: ChatFailureReason | null;
 }
 
 const INITIAL: ChatState = {
@@ -73,7 +99,16 @@ const INITIAL: ChatState = {
   step: null,
   source: null,
   busy: false,
-  degraded: false,
+  error: null,
+};
+
+/** One line naming what actually went wrong. A retry the user cannot reason
+ *  about is a button they press twice and then give up on. */
+const REASON_KEY: Record<ChatFailureReason, MessageKey> = {
+  timeout: 'chat.error.reason.timeout',
+  error: 'chat.error.reason.error',
+  unparseable: 'chat.error.reason.unparseable',
+  'no-key': 'chat.error.reason.no-key',
 };
 
 export function SymptomChat({
@@ -126,6 +161,131 @@ export function SymptomChat({
     liveRef.current?.scrollIntoView({ block: 'end', behavior: 'smooth' });
   }, [state.turns.length, state.step, state.busy]);
 
+  /**
+   * Resolve one step of the conversation from a COMPLETE turn list.
+   *
+   * It takes the turns rather than reading them from state, which is what lets
+   * `send` (turns + one new answer) and `retry` (the very same turns) share every
+   * line below. Retry therefore cannot drift from the request it is retrying.
+   */
+  const resolve = useCallback(
+    async (turns: ChatTurn[]) => {
+      const action = nextAction(turns, locale);
+
+      setState((prev) => ({
+        ...prev,
+        turns,
+        step: null,
+        busy: true,
+        error: null,
+      }));
+
+      /* The offline half of rule 3. The reducer supplies the transcript, so the
+         local result is computed from exactly the string the online path would
+         have sent. */
+      const offline = (): ChatStepResponse => ({
+        ok: true,
+        step: localAssessment(turns, locale),
+        source: 'fallback',
+      });
+
+      let response: ChatStepResponse;
+
+      if (!isEffectivelyOnline()) {
+        /* No network: no request, not even an attempt. A keyword assessment is
+           the honest answer here and it is labelled as one. */
+        response = offline();
+      } else {
+        try {
+          const res = await fetch(apiUrl('/api/triage/chat'), {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              turns,
+              locale,
+              ...(patient
+                ? {
+                    patient: {
+                      age: patient.age ?? null,
+                      gender: patient.gender ?? null,
+                    },
+                  }
+                : {}),
+              forceAssessment: action.kind === 'assess',
+            }),
+          });
+
+          /* A non-200, or a 200 whose body will not parse, is a FAILURE while
+             online — not an offline situation. `readChatResponse(null)` reports
+             it as one, and it cannot read a failure as an assessment. */
+          const body: unknown = res.ok ? await res.json().catch(() => null) : null;
+          response = readChatResponse(body);
+        } catch {
+          /* THE ONE DELIBERATE CROSSOVER.
+             `fetch` itself threw, so the request never completed: the network
+             dropped between the connectivity check above and this line. It now
+             truthfully IS an offline situation — `navigator.onLine` frequently
+             has not caught up yet — so the local keyword assessment is the
+             honest answer, exactly as it would have been a moment earlier. This
+             is the only path on which a thrown request produces an assessment
+             instead of an error plate. */
+          response = offline();
+        }
+      }
+
+      if (!response.ok) {
+        /* Visible, retryable, and the transcript above it is untouched. */
+        const reason = response.reason;
+        setState((prev) => ({
+          ...prev,
+          step: null,
+          source: null,
+          busy: false,
+          error: reason,
+        }));
+        return;
+      }
+
+      /* The second enforcement of rule 1, the turn cap. The route already
+         rejects a question when an assessment was mandatory; this keeps the
+         bound unconditional rather than contingent on the route staying correct.
+         It resolves to a visible failure rather than to a keyword assessment,
+         because online substitution is the dishonesty this policy removed — and
+         it cannot fire offline, where the response was built locally and is an
+         assessment by construction. */
+      if (action.kind === 'assess' && response.step.kind === 'question') {
+        setState((prev) => ({
+          ...prev,
+          step: null,
+          source: null,
+          busy: false,
+          error: 'unparseable',
+        }));
+        return;
+      }
+
+      const step = response.step;
+      const source = response.source;
+
+      setState((prev) => ({
+        ...prev,
+        turns:
+          step.kind === 'question'
+            ? appendTurn(turns, {
+                role: 'assistant',
+                text: step.question,
+                at: new Date().toISOString(),
+              })
+            : turns,
+        step,
+        source,
+        busy: false,
+        error: null,
+      }));
+    },
+    [locale, patient],
+  );
+
   const send = useCallback(
     async (text: string) => {
       const body = text.trim();
@@ -138,82 +298,19 @@ export function SymptomChat({
       stopVoice();
 
       const at = new Date().toISOString();
-      const withUser = appendTurn(state.turns, { role: 'user', text: body, at });
-      const action = nextAction(withUser, locale);
-
-      setState((prev) => ({
-        ...prev,
-        turns: withUser,
-        step: null,
-        busy: true,
-        degraded: false,
-      }));
       setDraft('');
-
-      /* Rule 3: a network failure resolves locally rather than dead-ending. The
-         reducer supplies the transcript, so the offline result is computed from
-         exactly the string the online path would have sent. */
-      const local = (): ChatStepResponse => {
-        const result = fallbackTriage(transcriptOf(withUser), locale);
-        return {
-          step: {
-            kind: 'assessment',
-            risk_level: result.risk_level,
-            summary: result.summary,
-            recommended_next_step: result.recommended_next_step,
-            ...(result.matched.length > 0 ? { red_flags: result.matched } : {}),
-          },
-          source: 'fallback',
-        };
-      };
-
-      let response: ChatStepResponse;
-      try {
-        const res = await fetch(apiUrl('/api/triage/chat'), {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            turns: withUser,
-            locale,
-            ...(patient
-              ? { patient: { age: patient.age ?? null, gender: patient.gender ?? null } }
-              : {}),
-            forceAssessment: action.kind === 'assess',
-          }),
-        });
-        response = res.ok ? ((await res.json()) as ChatStepResponse) : local();
-      } catch {
-        response = local();
-      }
-
-      /* The second enforcement of rule 1. The route already guarantees this; the
-         guard costs four lines and makes the bound unconditional rather than
-         contingent on a route staying correct. */
-      const step =
-        action.kind === 'assess' && response.step.kind === 'question'
-          ? local().step
-          : response.step;
-      const source =
-        step === response.step ? response.source : ('fallback' as TriageSource);
-
-      setState((prev) => ({
-        ...prev,
-        turns:
-          step.kind === 'question'
-            ? appendTurn(withUser, {
-                role: 'assistant',
-                text: step.question,
-                at: new Date().toISOString(),
-              })
-            : withUser,
-        step,
-        source,
-        busy: false,
-        degraded: source === 'fallback',
-      }));
+      await resolve(appendTurn(state.turns, { role: 'user', text: body, at }));
     },
-    [locale, patient, state.busy, state.turns, stopVoice],
+    [resolve, state.busy, state.turns, stopVoice],
   );
+
+  /** Re-sends the conversation exactly as it stands. No turn is added, nothing
+   *  is re-typed, and the transcript the user already gave is what goes back on
+   *  the wire — which is the whole reason an error state is allowed to exist. */
+  const retry = useCallback(() => {
+    if (state.busy || state.turns.length === 0) return;
+    void resolve(state.turns);
+  }, [resolve, state.busy, state.turns]);
 
   function restart() {
     setState(INITIAL);
@@ -294,6 +391,44 @@ export function SymptomChat({
         <div ref={liveRef} />
       </div>
 
+      {/* ——— The retryable failure plate.
+              This is what an ONLINE Gemini failure looks like: the failure
+              itself, named, with the conversation still on screen above it and
+              one button that sends the same turns again. It is deliberately NOT
+              an assessment — there is no risk badge here and no summary, because
+              there is nothing to summarise. Rule 3 of the Convergence_Contract
+              is satisfied by the Retry: the conversation has a way forward, and
+              a way forward is what "never dead-end" asks for, not a fabricated
+              verdict. ——— */}
+      {state.error && !state.busy && (
+        <section
+          className="plate flex flex-col gap-3 p-4"
+          data-state="error"
+          role="alert"
+        >
+          <BiLabel
+            k="chat.error.title"
+            className="text-title font-semibold text-ink"
+          />
+          <p lang={locale} className="max-w-[70ch] text-field font-semibold text-ink">
+            {t('chat.error')}
+          </p>
+          <p lang={locale} className="max-w-[70ch] text-body text-ink-muted">
+            {t(REASON_KEY[state.error])}
+          </p>
+          <div className="flex flex-wrap gap-2">
+            <Button type="button" size="field" onClick={retry} className="sm:w-auto">
+              <RefreshCw aria-hidden="true" />
+              <BiLabel k="action.retry" secondaryClassName="text-action-fg/75" />
+            </Button>
+            <Button type="button" variant="outline" onClick={restart}>
+              <RotateCcw aria-hidden="true" />
+              <span lang={locale}>{t('chat.restart')}</span>
+            </Button>
+          </div>
+        </section>
+      )}
+
       {/* ——— Quick replies. The primary input path, at the 44px floor. ——— */}
       {question && question.quickReplies.length > 0 && !state.busy && (
         <fieldset className="flex flex-col gap-2">
@@ -373,9 +508,15 @@ export function SymptomChat({
             </div>
           )}
 
-          {state.degraded && (
+          {/* A keyword assessment can now reach this plate for exactly one
+              reason — the device had no network — so the caption says that
+              plainly instead of the older "could not be completed online",
+              which was also shown when the network was fine. `<RiskBadge>`
+              above already carries the Req 9.4 fallback label; this line is the
+              WHY beside it. */}
+          {state.source === 'fallback' && (
             <p lang={locale} className="max-w-[70ch] text-caption font-semibold text-ink-muted">
-              {t('chat.error')}
+              {t('chat.offline')}
             </p>
           )}
 

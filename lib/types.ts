@@ -222,12 +222,25 @@ export interface TriageResult {
   matched: string[];
 }
 
-/** What `/api/summary` returns. */
+/**
+ * What `/api/summary` returns.
+ *
+ * `source: 'template'` is a SUCCESS and only ever occurs when the client
+ * reported itself offline (`reason: 'offline'`). Online, a missing key or a
+ * failed call reports `unavailable: true` — a deterministic restatement of
+ * stored rows passed off as the AI summary would hide a real failure.
+ */
 export interface SummaryResponse {
   summary: string | null;
   unavailable: boolean;
   source: 'gemini' | 'template';
-  reason?: 'timeout' | 'error' | 'unparseable' | 'empty-history' | 'no-key';
+  reason?:
+    | 'timeout'
+    | 'error'
+    | 'unparseable'
+    | 'empty-history'
+    | 'no-key'
+    | 'offline';
 }
 
 /* ————————————————————— Multi-turn symptom chat ————————————————————— */
@@ -267,11 +280,33 @@ export type ChatStep =
       red_flags?: string[];
     };
 
-/** What `/api/triage/chat` returns. HTTP 200 on every well-formed body. */
-export interface ChatStepResponse {
-  step: ChatStep;
-  source: TriageSource;
-}
+/** Why a conversation ended. Diagnostic only — the client does not branch on
+ *  it, it is here so the route and the component report the same vocabulary. */
+export type ChatEndReason = 'red-flag' | 'turn-cap' | 'model';
+
+/**
+ * Why an ONLINE assessment did not happen. Every member is a real failure of
+ * the AI call, and every one of them is meant to reach the screen as a failure.
+ *
+ * `no-key` is in here rather than being quietly absorbed: a deployment with no
+ * `GEMINI_API_KEY` is misconfigured, and a keyword verdict standing in for the
+ * model would hide that from the only person who can fix it.
+ */
+export type ChatFailureReason = 'timeout' | 'error' | 'unparseable' | 'no-key';
+
+/**
+ * What `/api/triage/chat` returns. HTTP 200 on every well-formed body — the
+ * client branches on `ok`, not on a status code, because a 502 from a proxy and
+ * a 502 the route chose to send are indistinguishable to `fetch`.
+ *
+ * The route NEVER returns `ok: true` with a keyword assessment. It cannot: it
+ * runs on the server and has no way to know whether the *client* is online, and
+ * a keyword verdict is only honest output when the network is genuinely gone.
+ * That judgement lives in the component, which is the only place that knows.
+ */
+export type ChatStepResponse =
+  | { ok: true; step: ChatStep; source: TriageSource; endReason?: ChatEndReason }
+  | { ok: false; reason: ChatFailureReason };
 
 /* ————————————————————————— Offline write queue ————————————————————————— */
 

@@ -14,9 +14,16 @@
  * those routes and never enters the client bundle — an APK is a zip file that
  * anyone can unpack, so a key inlined here would be a key published.
  *
- * Every call site that uses this has a deterministic local fallback
- * (`fallbackTriage`, the summary's unavailable state), so an APK built with no
- * base URL, or one running with no network, still completes every flow.
+ * Every call site that uses this checks `isEffectivelyOnline()` FIRST, so an APK
+ * running with no network never issues the request: triage answers from the
+ * keyword classifier on the device and the summary from a locally composed
+ * template, both visibly labelled, and every flow completes.
+ *
+ * An APK built with no base URL is a different case, and it now reads as the
+ * misconfiguration it is. Online, its `/api/...` request resolves inside the
+ * WebView instead of reaching a server, and that surfaces as a visible,
+ * retryable error rather than as a keyword assessment wearing the AI's plate.
+ * Set `NEXT_PUBLIC_API_BASE_URL`.
  */
 export const API_BASE = process.env.NEXT_PUBLIC_API_BASE_URL ?? '';
 

@@ -233,7 +233,27 @@ const enIN = {
   'chat.assessment.redFlags': 'Watch for these',
   'chat.you': 'You',
   'chat.assistant': 'Health guide',
-  'chat.error': 'The assessment could not be completed online. A keyword-based result is shown.',
+  /* ——— The two ways a conversation can fail to produce an AI assessment, and
+         they are DIFFERENT things.
+
+         `chat.offline` is not a failure. No network was available, so the
+         keyword classifier answered from the words the patient typed on this
+         device, and the line says so.
+
+         `chat.error*` is a failure: the device had a network and the AI call did
+         not come back. It is shown as a failure with a Retry, never as a
+         keyword result wearing an assessment plate. The reason lines exist so
+         the person deciding whether to press Retry knows what they are
+         retrying. ——— */
+  'chat.offline':
+    'No network. This result comes from the words you typed, read on this device.',
+  'chat.error.title': 'Assessment not completed',
+  'chat.error':
+    'The AI assessment did not come through. Your answers are still here — try again.',
+  'chat.error.reason.timeout': 'The health guide took too long to answer.',
+  'chat.error.reason.error': 'The health guide could not be reached.',
+  'chat.error.reason.unparseable': 'The health guide’s answer could not be read.',
+  'chat.error.reason.no-key': 'The AI health guide is not set up on this deployment.',
   'chat.transcript': 'What you described',
   'chat.conversation': 'Intake conversation',
   'chat.conversation.hint': 'The questions and answers this assessment was reached through.',

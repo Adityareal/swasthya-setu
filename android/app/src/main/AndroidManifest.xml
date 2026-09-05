@@ -38,9 +38,11 @@
     <!-- Permissions -->
 
     <!-- Required. The WebView loads the bundle from disk, but every AI call goes
-         to the hosted origin in NEXT_PUBLIC_API_BASE_URL. Without this the app
-         still runs and every flow still completes — triage falls back to the
-         local keyword classifier and the summary to a local template. -->
+         to the hosted origin in NEXT_PUBLIC_API_BASE_URL. Without this permission
+         the app still runs and every flow still completes: with no network the
+         client never issues the request at all and answers locally — the keyword
+         classifier for triage, a composed template for the summary — both
+         visibly labelled as such. -->
     <uses-permission android:name="android.permission.INTERNET" />
 
     <!-- Required by the QR_Module scanner at /asha/scan (Req 18.2). The WebView

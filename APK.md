@@ -57,15 +57,22 @@ trade gives up is Play Store distribution, which is not needed here.
 Two surfaces call Gemini, and both go through server route handlers rather than
 calling the model from the phone:
 
-| Surface | Route | Without network |
-|---|---|---|
-| Symptom triage / chat | `POST /api/triage`, `POST /api/triage/chat` | Deterministic keyword classifier, labelled as a fallback assessment |
-| Doctor longitudinal summary | `POST /api/summary` | Locally composed template summary, labelled as unavailable-AI |
+| Surface | Route | Offline (no network) | Online, but the AI call fails |
+|---|---|---|---|
+| Symptom triage / chat | `POST /api/triage/chat` | Deterministic keyword classifier, labelled as a fallback assessment | Visible, retryable error. No keyword substitution |
+| Doctor longitudinal summary | `POST /api/summary` | Locally composed template summary, labelled as composed-from-records | "Summary unavailable" notice with one manual Retry. No template |
+
+The two right-hand columns are deliberately different, and the client decides
+which applies because only the client knows whether the device has a network. A
+keyword verdict is the honest best effort when no model is reachable; the same
+verdict shown while the network is fine would wear the assessment plate and hide
+a live failure from the only people who could act on it.
 
 Reaching those handlers is necessary but not sufficient: the deployment serving
-them also needs `GEMINI_API_KEY` in **its own** environment for live AI. Without
-it the handlers still answer, they just answer with the fallbacks in the
-right-hand column above. See
+them also needs `GEMINI_API_KEY` in **its own** environment. Without it the
+handlers answer, but they answer `{ ok: false, reason: 'no-key' }` — a
+misconfigured deployment reports as a failure rather than hiding behind a
+keyword result. See
 [Live AI on the hosted deployment](#live-ai-on-the-hosted-deployment).
 
 Everything else — registration, intake, vitals, facility routing, token

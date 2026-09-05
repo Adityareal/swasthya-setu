@@ -1,11 +1,12 @@
 import { NextResponse } from 'next/server';
 import type {
+  ChatEndReason,
+  ChatFailureReason,
   ChatStep,
   ChatStepResponse,
   ChatTurn,
   SupportedLanguage,
 } from '@/lib/types';
-import { fallbackTriage } from '@/lib/triage/fallback';
 import { extractText } from '@/lib/triage/parse';
 import {
   MAX_QUESTIONS,
@@ -28,11 +29,21 @@ export const runtime = 'nodejs';
  * submission produces, so the health record, the routing and the token are
  * unchanged downstream.
  *
+ * THIS ROUTE IS PURE GEMINI. It has no fallback and it must not acquire one.
+ *
+ * The reason is that this code runs on the server, so it cannot know whether the
+ * CLIENT is online. A keyword verdict is honest output in exactly one situation
+ * — the device has no network and no model is reachable — and dishonest output
+ * in every other, because it wears the same assessment plate as a real AI answer
+ * while hiding a live failure nobody gets told about. The route therefore
+ * reports failure and the component, which is the only place that knows the
+ * connectivity state, decides what a failure means (Req 9.3, 9.4).
+ *
  * ALWAYS HTTP 200 on a well-formed body. No key, a timeout, an HTTP error, an
- * empty body, unparseable JSON, an out-of-enum risk level, or a fourth question
- * where an assessment was mandatory — every one of those is a
- * `source: 'fallback'` payload, never a 5xx. There is one shape on the wire and
- * the client has one branch to write (Req 9.3, 22.5).
+ * unparseable body, an out-of-enum risk level, or a fourth question where an
+ * assessment was mandatory — every one of those is
+ * `{ ok: false, reason }`, never a 5xx, because the client branches on the
+ * payload and a proxy's 502 is indistinguishable from one we chose to send.
  *
  * The three convergence rules live in `lib/triage/chat-reducer.ts`. The prompt
  * below asks for them; the reducer enforces them. Both, deliberately.
@@ -201,24 +212,35 @@ function buildContents(
   }));
 }
 
-/** Rule 3 of the Convergence_Contract, in one place. */
-function fallbackStep(
-  turns: ChatTurn[],
-  locale: SupportedLanguage,
-): ChatStep {
-  const result = fallbackTriage(transcriptOf(turns), locale);
-  return {
-    kind: 'assessment',
-    risk_level: result.risk_level,
-    summary: result.summary,
-    recommended_next_step: result.recommended_next_step,
-    ...(result.matched.length > 0 ? { red_flags: result.matched } : {}),
+/**
+ * A real model answer. `source` is always `'gemini'` — this route has no other
+ * source to report — and `endReason` is diagnostic only, spelled in the
+ * reducer's vocabulary so the route and the component describe the same event
+ * with the same word.
+ */
+function assessed(step: ChatStep, endReason: ChatEndReason): NextResponse {
+  const body: ChatStepResponse = {
+    ok: true,
+    step,
+    source: 'gemini',
+    endReason,
   };
+  return NextResponse.json(body);
 }
 
-function ok(step: ChatStep, source: 'gemini' | 'fallback', extra?: Record<string, unknown>) {
-  return NextResponse.json({ step, source, ...extra } satisfies ChatStepResponse &
-    Record<string, unknown>);
+/**
+ * A failure, reported AS a failure, at HTTP 200.
+ *
+ * There is deliberately no `step` on this branch. The route could synthesise a
+ * keyword assessment here in two lines and it must not: it would arrive on the
+ * client wearing the same assessment plate a real answer wears, and the client
+ * — the only party that knows whether the device has a network — would have no
+ * way left to tell a genuine offline best effort from a live failure nobody was
+ * told about.
+ */
+function failed(reason: ChatFailureReason): NextResponse {
+  const body: ChatStepResponse = { ok: false, reason };
+  return NextResponse.json(body);
 }
 
 export async function POST(request: Request): Promise<NextResponse> {
@@ -245,20 +267,17 @@ export async function POST(request: Request): Promise<NextResponse> {
   const action = nextAction(turns, locale);
   const mustAssess = body.forceAssessment === true || action.kind === 'assess';
   const redFlagged = action.kind === 'assess' && action.reason === 'red-flag';
-  const reason =
+  const endReason: ChatEndReason =
     action.kind === 'assess' ? action.reason : mustAssess ? 'turn-cap' : 'model';
 
   const apiKey = process.env.GEMINI_API_KEY;
 
-  /* No key configured is the first branch, not a failure: no network attempt, no
-     AbortController, no timer. The conversation ends in milliseconds with a
-     visibly labelled keyword-based assessment. */
-  if (!apiKey) {
-    return ok(fallbackStep(turns, locale), 'fallback', {
-      fallbackReason: 'no-key',
-      reason,
-    });
-  }
+  /* No key configured is still the first branch — no network attempt, no
+     AbortController, no timer — but it reports as a FAILURE rather than as an
+     assessment. A deployment without `GEMINI_API_KEY` is misconfigured, and a
+     keyword verdict standing in for the model would hide that from the only
+     person who can fix it. */
+  if (!apiKey) return failed('no-key');
 
   const ac = new AbortController();
   const timer = setTimeout(() => ac.abort('chat-timeout'), GEMINI_TIMEOUT_MS);
@@ -286,24 +305,28 @@ export async function POST(request: Request): Promise<NextResponse> {
     const parsed = parseChatStep(extractText(raw), {
       requireAssessment: mustAssess,
     });
-    if (!parsed.ok) throw new Error(`gemini-unparseable-${parsed.reason}`);
+    /* Unparseable is returned rather than thrown, so the catch below is left
+       holding transport failures and the abort only — one reason per branch. */
+    if (!parsed.ok) return failed('unparseable');
 
-    /* The keyword table supplies a FLOOR, never a ceiling. When the transcript
+    /* THE RED-FLAG FLOOR. KEEP THIS.
+       The keyword table supplies a FLOOR, never a ceiling. When the transcript
        reads `high` deterministically, the model provides the wording and cannot
-       talk the urgency down. Under-triage is the asymmetric error. */
+       talk the urgency down. This is NOT the fallback assessment — no keyword
+       verdict is being substituted for the model's answer here, the model's own
+       answer is being prevented from under-triaging. Under-triage is the
+       asymmetric error in triage, and it is the one closed off. */
     const step: ChatStep =
       redFlagged && parsed.value.kind === 'assessment'
         ? { ...parsed.value, risk_level: floorRisk(parsed.value.risk_level, 'high') }
         : parsed.value;
 
-    return ok(step, 'gemini', { reason });
-  } catch (error) {
-    /* The abort path and the error path converge here, so there is exactly one
-       place that can fall back. */
-    return ok(fallbackStep(turns, locale), 'fallback', {
-      fallbackReason: error instanceof Error ? error.message : 'gemini-unknown',
-      reason,
-    });
+    return assessed(step, endReason);
+  } catch {
+    /* The abort path and the transport path converge here. `aborted` is what
+       separates the 10s timeout from a network or HTTP failure, and both leave
+       as a visible failure the client can retry. */
+    return failed(ac.signal.aborted ? 'timeout' : 'error');
   } finally {
     clearTimeout(timer);
   }

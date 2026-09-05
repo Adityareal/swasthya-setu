@@ -1,7 +1,6 @@
 import { NextResponse } from 'next/server';
 import type { SummaryResponse, SupportedLanguage } from '@/lib/types';
 import { trimHistory, type HistoryItem } from '@/lib/summary/trim';
-import { composeTemplateSummary } from '@/lib/summary/template';
 import { extractText } from '@/lib/triage/parse';
 import { GEMINI_TIMEOUT_MS, generateContent } from '@/lib/gemini';
 
@@ -14,10 +13,13 @@ export const runtime = 'nodejs';
  * string is ceremony. No diagnosis, no new clinical claims, visits referenced
  * by date, and any cross-visit trend named explicitly.
  *
- * ALWAYS HTTP 200. A genuine Gemini failure with a key present returns
- * `{ summary: null, unavailable: true, reason }` — it reports as a failure
- * rather than hiding behind the template, because a presenter needs to know
- * which path ran (Req 14.3).
+ * ALWAYS HTTP 200. Every outcome this route can reach with a request in hand is
+ * either a Gemini summary or `{ summary: null, unavailable: true, reason }` —
+ * a timeout, an empty body, an HTTP error, or a missing key. It never composes
+ * a local template: reaching this handler at all proves the client had a
+ * network, and a restatement of stored rows shown in the summary plate while the
+ * network is fine hides a real failure from the presenter (Req 14.3). The
+ * template lives on the client now, behind `isEffectivelyOnline()`.
  *
  * Vitals are deliberately not accepted here. Paraphrasing a blood pressure
  * through a language model is a way to introduce an error into the one part of
@@ -127,17 +129,25 @@ export async function POST(request: Request): Promise<NextResponse> {
 
   const apiKey = process.env.GEMINI_API_KEY;
 
-  /* No key: compose locally and return it as a SUCCESS, visibly labelled as a
-     template. The doctor beat is the demo's centre of gravity and a blank
-     summary plate on a clean clone would gut it. */
+  /* No key is a FAILURE here, not a template.
+     This route used to compose `composeTemplateSummary` and return it as a
+     success. It no longer does, for the same reason the chat route no longer
+     falls back: a deterministic restatement of stored rows, presented in the
+     summary plate while the doctor's device is perfectly online, reads as the
+     AI summary and hides a misconfigured deployment from the only person who
+     can fix it. The template survives — it is composed CLIENT-SIDE by
+     `components/doctor/summary-cache.ts` when, and only when, the client
+     reports itself offline, which is the one situation where a local
+     restatement is the honest best available answer. The server cannot make
+     that call: it does not know whether the client has a network. */
   if (!apiKey) {
-    const composed: SummaryResponse = {
-      summary: composeTemplateSummary(trimmed, locale),
-      unavailable: false,
-      source: 'template',
+    const noKey: SummaryResponse = {
+      summary: null,
+      unavailable: true,
+      source: 'gemini',
       reason: 'no-key',
     };
-    return NextResponse.json(composed);
+    return NextResponse.json(noKey);
   }
 
   const ac = new AbortController();
