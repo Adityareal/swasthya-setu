@@ -6,14 +6,39 @@
  */
 
 /**
- * `gemini-2.5-flash` still appears in `models.list` but `:generateContent`
- * answers 404 for this key: "no longer available to new users. Please update
- * your code to use models/gemini-3.6-flash". Verified by hand against the live
- * endpoint — every route was silently returning its deterministic fallback.
- * Pinned rather than tracking `gemini-flash-latest`, so a demo cannot change
- * behaviour between the rehearsal and the stage.
+ * MODEL CHOICE — the whole history, because it has moved twice and each move
+ * was forced by the live endpoint rather than chosen for taste.
+ *
+ * 1. `gemini-2.5-flash` was the original pin. It still appears in
+ *    `models.list`, but `:generateContent` answers 404 for this key: "no longer
+ *    available to new users. Please update your code to use
+ *    models/gemini-3.6-flash". The whole 2.5 family is retired the same way —
+ *    `gemini-2.5-flash-lite` 404s toward `models/gemini-3.5-flash-lite`, and
+ *    `gemini-2.0-flash` 404s toward `models/gemini-3.6-flash`. None of the
+ *    three is worth retrying. While 2.5 was pinned every route was silently
+ *    serving its deterministic fallback, which is exactly the failure mode the
+ *    honest-failure policy elsewhere in this codebase exists to expose.
+ *
+ * 2. `gemini-3.6-flash` replaced it, and its free tier is 20 requests per DAY.
+ *    That allowance is spent: the endpoint answers
+ *    `429 RESOURCE_EXHAUSTED, generate_content_free_tier_requests, limit: 20,
+ *    model: gemini-3.6-flash`. A 429 is not a soft degrade here — it is every
+ *    AI surface in the app failing at once, on stage, with no way to top up.
+ *
+ * 3. `gemini-3.5-flash-lite` is the pin now. It is the lite tier of the CURRENT
+ *    generation, so it is the one member of that generation with free-tier
+ *    headroom left, and it is the model Google's own 404 for
+ *    `gemini-2.5-flash-lite` names as the successor. Verified live with this
+ *    project's key: `"text": "ok"`, `finishReason: "STOP"`,
+ *    `modelVersion: "gemini-3.5-flash-lite"`, `serviceTier: "standard"`.
+ *    Triage classification against a fixed rubric is not a reasoning-heavy
+ *    task, so the lite tier costs nothing that matters here.
+ *
+ * PINNED, never `-latest`. A floating alias can change generation between the
+ * rehearsal and the stage, and "the model moved under us" is not a failure
+ * anybody can debug in the ninety seconds a demo gives you.
  */
-export const GEMINI_MODEL = 'gemini-3.6-flash';
+export const GEMINI_MODEL = 'gemini-3.5-flash-lite';
 export const GEMINI_URL =
   `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent`;
 
