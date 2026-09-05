@@ -62,10 +62,38 @@ calling the model from the phone:
 | Symptom triage / chat | `POST /api/triage`, `POST /api/triage/chat` | Deterministic keyword classifier, labelled as a fallback assessment |
 | Doctor longitudinal summary | `POST /api/summary` | Locally composed template summary, labelled as unavailable-AI |
 
+Reaching those handlers is necessary but not sufficient: the deployment serving
+them also needs `GEMINI_API_KEY` in **its own** environment for live AI. Without
+it the handlers still answer, they just answer with the fallbacks in the
+right-hand column above. See
+[Live AI on the hosted deployment](#live-ai-on-the-hosted-deployment).
+
 Everything else — registration, intake, vitals, facility routing, token
 assignment, clinical decisions, prescriptions, the referral board, the stock and
 dashboard views, the offline write queue — runs entirely on the device against
 `localStorage`. No network, no server, no account.
+
+### Live AI on the hosted deployment
+
+Because the export is conditional, the hosted build keeps its route handlers, so
+`/api/triage`, `/api/triage/chat` and `/api/summary` answer rather than returning
+405. Answering is not the same as answering with Gemini — the deployment also
+needs `GEMINI_API_KEY` in **its own** environment:
+
+1. **Vercel → the project → Settings → Environment Variables → Add**
+   - Key: `GEMINI_API_KEY`
+   - Value: a Google AI Studio key for `gemini-2.5-flash`
+   - Apply it to Production, plus Preview if previews should have live AI too.
+2. Redeploy. An already-built deployment does not pick up a variable added after
+   it was built.
+
+Server-side only, and it has to stay that way: no `NEXT_PUBLIC_` prefix, so the
+value is never inlined into the client bundle. Only `app/api/` reads it.
+
+Without the key every flow still completes on its visibly labelled fallback —
+keyword triage marked as a fallback assessment, and a locally composed
+longitudinal summary marked as unavailable-AI. A missing key degrades the demo
+rather than breaking it.
 
 ### Pointing the APK at a hosted deployment
 
@@ -103,7 +131,7 @@ key. The phone talks to your deployment; your deployment talks to Gemini.
 ## How the packaging works
 
 ```
-next build ──> out/            static export, no server
+BUILD_TARGET=apk next build ──> out/    static export, no server
                  │
           npx cap sync android ──> android/app/src/main/assets/public/
                                           │
@@ -114,16 +142,29 @@ next build ──> out/            static export, no server
 
 Four decisions carry this, each with a consequence worth knowing before changing it:
 
-**`output: 'export'` in `next.config.ts`.** The WebView loads files from disk;
-there is no Node process inside the APK. `images.unoptimized` follows because the
-image optimiser is a server route. `trailingSlash` follows because the export
-writes `/doctor/index.html`, and a directory request is what resolves reliably
-inside a WebView.
+**The static export in `next.config.ts` is conditional on `BUILD_TARGET=apk`.**
+The two consumers need opposite builds. The APK needs a static bundle — the
+WebView loads files from disk and there is no Node process inside the app
+package. The hosted deployment needs the opposite, a server build, because a
+static export has no server to run a route handler on and would leave
+`/api/triage`, `/api/triage/chat` and `/api/summary` non-existent. The env var
+picks between them, and it is set in exactly one place: the **Build static
+export** step in `.github/workflows/android.yml`. Vercel, `npm run build` and
+`npm run dev` leave it unset and get working route handlers.
 
-**The workflow deletes `app/api/` before building.** A static export cannot host
-route handlers, but the hosted web deployment needs them — so they stay in the
-repo and only the APK build strips them. The step is annotated in the workflow;
-please read that comment before removing it.
+`images.unoptimized` and `trailingSlash` stay unconditional. The first because
+the image optimiser is a server route the export cannot use; the second because
+the export writes `/doctor/index.html` and a directory request is what resolves
+reliably inside a WebView — and because the same client code builds both targets,
+so hosted and in-APK URLs have to agree on the trailing slash.
+
+**The workflow deletes `app/api/` before building.** Now that the export is
+conditional this is not what makes the APK build possible; it is what guarantees
+server code cannot reach the APK bundle. `app/api/` is where `GEMINI_API_KEY` is
+read, an APK is a zip anyone can unpack, and handlers that are not in the tree
+cannot be compiled into one. The handlers stay in the repo for the hosted
+deployment. The step is annotated in the workflow; please read that comment
+before removing it.
 
 **The doctor detail route is `/doctor/patient/?id=…`, not `/doctor/patients/[id]`.**
 A dynamic segment under `output: 'export'` requires `generateStaticParams()`,
@@ -140,20 +181,33 @@ absolute, which is what the APK needs. One seam, both behaviours.
 
 ```bash
 npm run dev      # http://localhost:3000, route handlers live, same-origin /api
-npm run build    # emits out/
-npm test         # 191 tests
+npm run build    # server build with route handlers — same as Vercel
+npm test         # 236 tests
 ```
 
-`npm run build` now produces a static export, so `npm start` (`next start`) no
-longer serves this app. Serve `out/` with any static server, or use `npm run dev`.
+`npm run build` with `BUILD_TARGET` unset is a normal server build, so `npm start`
+(`next start`) serves this app including `/api/...`. Set `BUILD_TARGET=apk` and the
+same command emits a static `out/` instead, with no server and no route handlers —
+that is the APK's build and not the one to reach for locally.
 
 ## Rebuilding the APK locally
 
-Only if you have the Android SDK and **JDK 21** installed:
+Only if you have the Android SDK and **JDK 21** installed. `BUILD_TARGET=apk` is
+required — without it the build is a server build, no `out/` is written, and
+`cap sync` has nothing to copy (or, worse, copies a stale `out/` from an earlier
+run):
+
+```powershell
+$env:BUILD_TARGET='apk'; npm run apk:debug; Remove-Item Env:\BUILD_TARGET
+```
 
 ```bash
-npm run apk:debug
+BUILD_TARGET=apk npm run apk:debug
 ```
+
+The `apk:debug` script does not set the variable itself, deliberately: the switch
+lives in the environment so there is exactly one build command and exactly one
+thing that decides what it emits.
 
 JDK 21 specifically — `android/app/capacitor.build.gradle`, generated by
 Capacitor, pins Java 21 source and target compatibility. JDK 17 fails with
